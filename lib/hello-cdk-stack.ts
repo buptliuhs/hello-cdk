@@ -16,7 +16,7 @@ export class HelloCdkStack extends cdk.Stack {
 
     // The code that defines your stack goes here
     new s3.Bucket(this, 'MyFirstBucket', {
-      bucketName: cdk.PhysicalName.GENERATE_IF_NEEDED,
+      bucketName: `tonyl-hello-cdk-${this.account}-${this.region}`,
       versioned: true,
     });
   }
