@@ -1,34 +1,35 @@
-import * as dynamodb from '@aws-cdk/aws-dynamodb';
-import * as s3 from '@aws-cdk/aws-s3';
-import * as cdk from '@aws-cdk/core';
-import {BillingMode} from "@aws-cdk/aws-dynamodb/lib/table";
+import {Construct, RemovalPolicy, Stack, StackProps} from "@aws-cdk/core";
+import {AttributeType, BillingMode, Table} from "@aws-cdk/aws-dynamodb";
+import {Bucket} from "@aws-cdk/aws-s3";
 
 /**
  * The main stack
  */
-export class HelloCdkStack extends cdk.Stack {
+export class HelloCdkStack extends Stack {
   /**
    * constructor
-   * @param {cdk.Construct} scope
+   * @param {Construct} scope
    * @param {string} id
-   * @param {cdk.StackProps} props
+   * @param {StackProps} props
    */
-  constructor(scope: cdk.Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props?: StackProps) {
     super(scope, id, props);
 
     // The code that defines your stack goes here
-    new s3.Bucket(this, 'MyFirstBucket', {
+    new Bucket(this, 'MyFirstBucket', {
       bucketName: `tonyl-hello-cdk-${this.account}-${this.region}`,
       versioned: true,
+      removalPolicy: RemovalPolicy.RETAIN,
     });
 
-    new dynamodb.Table(this, 'MyFirstTable', {
+    new Table(this, 'MyFirstTable', {
       tableName: 'MyFirstTable',
       billingMode: BillingMode.PAY_PER_REQUEST,
       partitionKey: {
         name: 'id',
-        type: dynamodb.AttributeType.STRING,
+        type: AttributeType.STRING,
       },
+      removalPolicy: RemovalPolicy.RETAIN,
     });
   }
 }
