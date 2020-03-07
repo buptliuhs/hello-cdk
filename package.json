@@ -8,7 +8,9 @@
     "build": "tsc",
     "watch": "tsc -w",
     "test": "jest",
-    "cdk": "cdk"
+    "cdk": "cdk",
+    "eslint": "npx eslint bin/* lib/*",
+    "eslint-fix": "npx eslint bin/* lib/* --fix"
   },
   "devDependencies": {
     "@aws-cdk/assert": "1.27.0",

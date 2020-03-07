@@ -5,9 +5,9 @@ import {HelloCdkStack} from '../lib/hello-cdk-stack';
 
 const props: cdk.StackProps = {
   tags: {
-    Owner: 'Tony Liu',
     Email: 'buptliuhs@gmail.com',
-  }
+    Owner: 'Tony Liu',
+  },
 };
 
 const app = new cdk.App();

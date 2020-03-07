@@ -19,7 +19,28 @@
   "plugins": [
     "@typescript-eslint"
   ],
+  "ignorePatterns": [
+    "*.d.ts",
+    "*.js",
+    "node_modules/"
+  ],
   "rules": {
+    "no-undef": "off",
+    "no-unused-vars": "off",
+    "sort-imports": "off",
+    "quote-props": [
+      "error",
+      "as-needed"
+    ],
+    "sort-keys": [
+      "error",
+      "asc",
+      {
+        "caseSensitive": true,
+        "natural": false,
+        "minKeys": 2
+      }
+    ],
     "semi": [
       "error",
       "always"
