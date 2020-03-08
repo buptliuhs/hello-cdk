@@ -1,10 +1,10 @@
 import * as path from "path";
 import {Construct, Duration, RemovalPolicy, Stack, StackProps} from "@aws-cdk/core";
-import {AttributeType, BillingMode, Table} from "@aws-cdk/aws-dynamodb";
+import {AttributeType, BillingMode, StreamViewType, Table} from "@aws-cdk/aws-dynamodb";
 import {Bucket} from "@aws-cdk/aws-s3";
 import {Queue} from "@aws-cdk/aws-sqs";
-import {Code, Function, LogRetention, Runtime} from "@aws-cdk/aws-lambda";
-import {SqsEventSource} from "@aws-cdk/aws-lambda-event-sources";
+import {Code, Function, Runtime, StartingPosition} from "@aws-cdk/aws-lambda";
+import {DynamoEventSource, SqsEventSource} from "@aws-cdk/aws-lambda-event-sources";
 import {LogGroup, RetentionDays} from "@aws-cdk/aws-logs";
 
 /**
@@ -35,6 +35,7 @@ export class HelloCdkStack extends Stack {
         type: AttributeType.STRING,
       },
       removalPolicy: RemovalPolicy.DESTROY, // or RETAIN
+      stream: StreamViewType.NEW_AND_OLD_IMAGES,
       tableName: "MyFirstTable",
     });
     // DLQ
@@ -52,7 +53,7 @@ export class HelloCdkStack extends Stack {
       visibilityTimeout: Duration.seconds(10),
     });
     // Lambda
-    const lambda = new Function(this, "MyFirstFunction", {
+    const messageHandlerLambda = new Function(this, "MessageHandlerFunction", {
       code: Code.fromAsset(path.join(`${__dirname}/../functions/message_handler`)),
       deadLetterQueue: dlq,
       events: [
@@ -60,14 +61,34 @@ export class HelloCdkStack extends Stack {
           batchSize: 1,
         }),
       ],
-      functionName: "MyFirstFunction",
+      functionName: "MessageHandlerFunction",
       handler: "index.handler",
       memorySize: 128,
       runtime: Runtime.NODEJS_10_X,
       timeout: Duration.seconds(10),
     });
-    const logGroup = new LogGroup(this, "MyFirstFunctionLogGroup", {
-      logGroupName: `/aws/lambda/${lambda.functionName}`,
+    new LogGroup(this, "MessageHandlerFunctionLogGroup", {
+      logGroupName: `/aws/lambda/${messageHandlerLambda.functionName}`,
+      removalPolicy: RemovalPolicy.DESTROY,
+      retention: RetentionDays.ONE_WEEK,
+    });
+    // Lambda
+    const dbHandlerLambda = new Function(this, "DbHandlerFunction", {
+      code: Code.fromAsset(path.join(`${__dirname}/../functions/db_handler`)),
+      events: [
+        new DynamoEventSource(table, {
+          batchSize: 1,
+          startingPosition: StartingPosition.TRIM_HORIZON,
+        }),
+      ],
+      functionName: "DbHandlerFunction",
+      handler: "index.handler",
+      memorySize: 128,
+      runtime: Runtime.NODEJS_10_X,
+      timeout: Duration.seconds(10),
+    });
+    new LogGroup(this, "DbHandlerFunctionLogGroup", {
+      logGroupName: `/aws/lambda/${dbHandlerLambda.functionName}`,
       removalPolicy: RemovalPolicy.DESTROY,
       retention: RetentionDays.ONE_WEEK,
     });
