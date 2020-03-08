@@ -3,7 +3,7 @@ import {Construct, Duration, RemovalPolicy, Stack, StackProps} from "@aws-cdk/co
 import {AttributeType, BillingMode, Table} from "@aws-cdk/aws-dynamodb";
 import {Bucket} from "@aws-cdk/aws-s3";
 import {Queue} from "@aws-cdk/aws-sqs";
-import {Code, Function, Runtime} from "@aws-cdk/aws-lambda";
+import {Code, Function, LogRetention, Runtime} from "@aws-cdk/aws-lambda";
 import {SqsEventSource} from "@aws-cdk/aws-lambda-event-sources";
 import {LogGroup, RetentionDays} from "@aws-cdk/aws-logs";
 
@@ -45,25 +45,27 @@ export class HelloCdkStack extends Stack {
     // SQS
     const queue = new Queue(this, "MyFirstQueue", {
       deadLetterQueue: {
-        maxReceiveCount: 10,
+        maxReceiveCount: 3,
         queue: dlq,
       },
       queueName: "MyFirstQueue",
-      receiveMessageWaitTime: Duration.seconds(10),
-      visibilityTimeout: Duration.seconds(30),
+      visibilityTimeout: Duration.seconds(10),
     });
     // Lambda
     const lambda = new Function(this, "MyFirstFunction", {
       code: Code.fromAsset(path.join(`${__dirname}/../functions/message_handler`)),
+      deadLetterQueue: dlq,
+      events: [
+        new SqsEventSource(queue, {
+          batchSize: 1,
+        }),
+      ],
       functionName: "MyFirstFunction",
       handler: "index.handler",
       memorySize: 128,
       runtime: Runtime.NODEJS_10_X,
       timeout: Duration.seconds(10),
     });
-    lambda.addEventSource(new SqsEventSource(queue, {
-      batchSize: 1,
-    }));
     const logGroup = new LogGroup(this, "MyFirstFunctionLogGroup", {
       logGroupName: `/aws/lambda/${lambda.functionName}`,
       removalPolicy: RemovalPolicy.DESTROY,
