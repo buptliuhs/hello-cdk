@@ -25,9 +25,14 @@
     "node_modules/"
   ],
   "rules": {
+    "max-len": "off",
     "no-undef": "off",
     "no-unused-vars": "off",
     "sort-imports": "off",
+    "quotes": [
+      "error",
+      "double"
+    ],
     "quote-props": [
       "error",
       "as-needed"
