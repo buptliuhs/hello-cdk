@@ -22,8 +22,8 @@
           "Status": "Enabled"
         }
       },
-      "UpdateReplacePolicy": "Retain",
-      "DeletionPolicy": "Retain"
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
     },
     "MyFirstTable42532361": {
       "Type": "AWS::DynamoDB::Table",
@@ -41,10 +41,407 @@
           }
         ],
         "BillingMode": "PAY_PER_REQUEST",
+        "StreamSpecification": {
+          "StreamViewType": "NEW_AND_OLD_IMAGES"
+        },
         "TableName": "MyFirstTable"
       },
-      "UpdateReplacePolicy": "Retain",
-      "DeletionPolicy": "Retain"
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
+    },
+    "MyFirstDLQ0D291CE2": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "MessageRetentionPeriod": 604800,
+        "QueueName": "MyFirstDLQ"
+      }
+    },
+    "MyFirstQueueFF09316A": {
+      "Type": "AWS::SQS::Queue",
+      "Properties": {
+        "QueueName": "MyFirstQueue",
+        "RedrivePolicy": {
+          "deadLetterTargetArn": {
+            "Fn::GetAtt": [
+              "MyFirstDLQ0D291CE2",
+              "Arn"
+            ]
+          },
+          "maxReceiveCount": 3
+        },
+        "VisibilityTimeout": 10
+      }
+    },
+    "MessageHandlerFunctionServiceRole0B6C6F00": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "MessageHandlerFunctionServiceRoleDefaultPolicyCEAA4DE5": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sqs:SendMessage",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "MyFirstDLQ0D291CE2",
+                  "Arn"
+                ]
+              }
+            },
+            {
+              "Action": [
+                "sqs:ReceiveMessage",
+                "sqs:ChangeMessageVisibility",
+                "sqs:GetQueueUrl",
+                "sqs:DeleteMessage",
+                "sqs:GetQueueAttributes"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "MyFirstQueueFF09316A",
+                  "Arn"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "MessageHandlerFunctionServiceRoleDefaultPolicyCEAA4DE5",
+        "Roles": [
+          {
+            "Ref": "MessageHandlerFunctionServiceRole0B6C6F00"
+          }
+        ]
+      }
+    },
+    "MessageHandlerFunction8243B5D2": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "AssetParameters8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050S3BucketDF85840A"
+          },
+          "S3Key": {
+            "Fn::Join": [
+              "",
+              [
+                {
+                  "Fn::Select": [
+                    0,
+                    {
+                      "Fn::Split": [
+                        "||",
+                        {
+                          "Ref": "AssetParameters8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050S3VersionKeyFFE9F9C2"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Fn::Select": [
+                    1,
+                    {
+                      "Fn::Split": [
+                        "||",
+                        {
+                          "Ref": "AssetParameters8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050S3VersionKeyFFE9F9C2"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            ]
+          }
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "MessageHandlerFunctionServiceRole0B6C6F00",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs10.x",
+        "DeadLetterConfig": {
+          "TargetArn": {
+            "Fn::GetAtt": [
+              "MyFirstDLQ0D291CE2",
+              "Arn"
+            ]
+          }
+        },
+        "FunctionName": "MessageHandlerFunction",
+        "MemorySize": 128,
+        "Timeout": 10
+      },
+      "DependsOn": [
+        "MessageHandlerFunctionServiceRoleDefaultPolicyCEAA4DE5",
+        "MessageHandlerFunctionServiceRole0B6C6F00"
+      ]
+    },
+    "MessageHandlerFunctionSqsEventSourceHelloCdkStackMyFirstQueue33599586C87A4140": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "Properties": {
+        "EventSourceArn": {
+          "Fn::GetAtt": [
+            "MyFirstQueueFF09316A",
+            "Arn"
+          ]
+        },
+        "FunctionName": {
+          "Ref": "MessageHandlerFunction8243B5D2"
+        },
+        "BatchSize": 1
+      }
+    },
+    "MessageHandlerFunctionLogGroup46CBAB05": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Join": [
+            "",
+            [
+              "/aws/lambda/",
+              {
+                "Ref": "MessageHandlerFunction8243B5D2"
+              }
+            ]
+          ]
+        },
+        "RetentionInDays": 7
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
+    },
+    "DbHandlerFunctionServiceRole08B0106F": {
+      "Type": "AWS::IAM::Role",
+      "Properties": {
+        "AssumeRolePolicyDocument": {
+          "Statement": [
+            {
+              "Action": "sts:AssumeRole",
+              "Effect": "Allow",
+              "Principal": {
+                "Service": "lambda.amazonaws.com"
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "ManagedPolicyArns": [
+          {
+            "Fn::Join": [
+              "",
+              [
+                "arn:",
+                {
+                  "Ref": "AWS::Partition"
+                },
+                ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "DbHandlerFunctionServiceRoleDefaultPolicy3D2B9722": {
+      "Type": "AWS::IAM::Policy",
+      "Properties": {
+        "PolicyDocument": {
+          "Statement": [
+            {
+              "Action": "dynamodb:ListStreams",
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::Join": [
+                  "",
+                  [
+                    {
+                      "Fn::GetAtt": [
+                        "MyFirstTable42532361",
+                        "Arn"
+                      ]
+                    },
+                    "/stream/*"
+                  ]
+                ]
+              }
+            },
+            {
+              "Action": [
+                "dynamodb:DescribeStream",
+                "dynamodb:GetRecords",
+                "dynamodb:GetShardIterator"
+              ],
+              "Effect": "Allow",
+              "Resource": {
+                "Fn::GetAtt": [
+                  "MyFirstTable42532361",
+                  "StreamArn"
+                ]
+              }
+            }
+          ],
+          "Version": "2012-10-17"
+        },
+        "PolicyName": "DbHandlerFunctionServiceRoleDefaultPolicy3D2B9722",
+        "Roles": [
+          {
+            "Ref": "DbHandlerFunctionServiceRole08B0106F"
+          }
+        ]
+      }
+    },
+    "DbHandlerFunction27F28C90": {
+      "Type": "AWS::Lambda::Function",
+      "Properties": {
+        "Code": {
+          "S3Bucket": {
+            "Ref": "AssetParametersada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469S3BucketE4D15DE0"
+          },
+          "S3Key": {
+            "Fn::Join": [
+              "",
+              [
+                {
+                  "Fn::Select": [
+                    0,
+                    {
+                      "Fn::Split": [
+                        "||",
+                        {
+                          "Ref": "AssetParametersada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469S3VersionKey9731C949"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Fn::Select": [
+                    1,
+                    {
+                      "Fn::Split": [
+                        "||",
+                        {
+                          "Ref": "AssetParametersada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469S3VersionKey9731C949"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            ]
+          }
+        },
+        "Handler": "index.handler",
+        "Role": {
+          "Fn::GetAtt": [
+            "DbHandlerFunctionServiceRole08B0106F",
+            "Arn"
+          ]
+        },
+        "Runtime": "nodejs10.x",
+        "FunctionName": "DbHandlerFunction",
+        "MemorySize": 128,
+        "Timeout": 10
+      },
+      "DependsOn": [
+        "DbHandlerFunctionServiceRoleDefaultPolicy3D2B9722",
+        "DbHandlerFunctionServiceRole08B0106F"
+      ]
+    },
+    "DbHandlerFunctionDynamoDBEventSourceHelloCdkStackMyFirstTableF314C4BA980121D7": {
+      "Type": "AWS::Lambda::EventSourceMapping",
+      "Properties": {
+        "EventSourceArn": {
+          "Fn::GetAtt": [
+            "MyFirstTable42532361",
+            "StreamArn"
+          ]
+        },
+        "FunctionName": {
+          "Ref": "DbHandlerFunction27F28C90"
+        },
+        "BatchSize": 1,
+        "StartingPosition": "TRIM_HORIZON"
+      }
+    },
+    "DbHandlerFunctionLogGroupA5F14F87": {
+      "Type": "AWS::Logs::LogGroup",
+      "Properties": {
+        "LogGroupName": {
+          "Fn::Join": [
+            "",
+            [
+              "/aws/lambda/",
+              {
+                "Ref": "DbHandlerFunction27F28C90"
+              }
+            ]
+          ]
+        },
+        "RetentionInDays": 7
+      },
+      "UpdateReplacePolicy": "Delete",
+      "DeletionPolicy": "Delete"
+    }
+  },
+  "Parameters": {
+    "AssetParameters8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050S3BucketDF85840A": {
+      "Type": "String",
+      "Description": "S3 bucket for asset \"8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050\""
+    },
+    "AssetParameters8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050S3VersionKeyFFE9F9C2": {
+      "Type": "String",
+      "Description": "S3 key for asset version \"8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050\""
+    },
+    "AssetParameters8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050ArtifactHashBDF30CA0": {
+      "Type": "String",
+      "Description": "Artifact hash for asset \"8e8513b3a47469cec7039d6a8b9dd2f406cab3deedd44d103f1eb90217519050\""
+    },
+    "AssetParametersada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469S3BucketE4D15DE0": {
+      "Type": "String",
+      "Description": "S3 bucket for asset \"ada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469\""
+    },
+    "AssetParametersada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469S3VersionKey9731C949": {
+      "Type": "String",
+      "Description": "S3 key for asset version \"ada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469\""
+    },
+    "AssetParametersada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469ArtifactHash356745FD": {
+      "Type": "String",
+      "Description": "Artifact hash for asset \"ada301568cd4b37d54cb5f49b319ff2223cd899c800d62d1081444779a1a7469\""
     }
   }
 }
